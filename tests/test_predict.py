@@ -25,6 +25,13 @@ def test_health(client):
     assert response.get_json()["status"] == "ok"
 
 def test_predict_default(client):
+    mock_model = MagicMock()
+    mock_model.predict_proba.return_value = np.array([[0.2, 0.8]])
+
+    import src.predict as predict_module
+    predict_module.model = mock_model
+    predict_module.threshold = 0.5
+
     payload = {
         "Age": 35, "Income": 50000, "CreditScore": 650,
         "LoanAmount": 15000, "LoanTerm": 36, "InterestRate": 12.5,
