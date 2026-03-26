@@ -13,12 +13,21 @@ FEATURE_ORDER = ['Age', 'Income', 'CreditScore', 'InterestRate', 'LoanTerm',
                  'HasMortgage', 'HasDependents', 'LoanPurpose', 'HasCoSigner',
                  'LoanToIncome', 'CreditLinesPerYear', 'RiskInteraction']
 
+model = None
+threshold = None
+
 def load_model():
+    global model, threshold
     with open(MODEL_PATH, "rb") as f:
         artifact = pickle.load(f)
-    return artifact["model"], artifact["threshold"]
+    model = artifact["model"]
+    threshold = artifact["threshold"]
 
-model, threshold = load_model()
+def get_model():
+    global model, threshold
+    if model is None:
+        load_model()
+    return model, threshold
 
 @app.route("/health", methods=["GET"])
 def health():
@@ -27,31 +36,26 @@ def health():
 @app.route("/predict", methods=["POST"])
 def predict():
     try:
+        m, t = get_model()
         data = request.get_json()
         df = pd.DataFrame([data])
 
-        # Engineer same features as training
         df['LoanToIncome']       = df['LoanAmount'] / (df['Income'] + 1)
         df['CreditLinesPerYear'] = df['NumCreditLines'] / ((df['MonthsEmployed'] / 12) + 1)
         df['RiskInteraction']    = df['InterestRate'] * df['DTIRatio']
 
-        # Drop redundant columns
         df = df.drop(columns=['NumCreditLines', 'LoanAmount', 'MonthsEmployed'], errors="ignore")
-
-        # Drop target if accidentally included
         df = df.drop(columns=["Default"], errors="ignore")
-
-        # Reorder columns to match training
         df = df[FEATURE_ORDER]
 
-        prob = model.predict_proba(df)[:, 1][0]
-        prediction = int(prob >= threshold)
+        prob = m.predict_proba(df)[:, 1][0]
+        prediction = int(prob >= t)
 
         return jsonify({
             "default_probability": round(float(prob), 4),
             "prediction": prediction,
             "prediction_label": "Default" if prediction == 1 else "No Default",
-            "threshold_used": round(float(threshold), 4)
+            "threshold_used": round(float(t), 4)
         })
 
     except Exception as e:
