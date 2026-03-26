@@ -2,10 +2,16 @@ import pytest
 import json
 import sys
 import os
+from unittest.mock import patch, MagicMock
+import numpy as np
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from src.predict import app
+mock_model = MagicMock()
+mock_model.predict_proba.return_value = np.array([[0.2, 0.8]])
+
+with patch("src.predict.load_model", return_value=(mock_model, 0.5)):
+    from src.predict import app
 
 @pytest.fixture
 def client():
