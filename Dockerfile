@@ -6,7 +6,11 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY src/ ./src/
-COPY models/ ./models/
+COPY data/ ./data/
+
+ENV DISABLE_MLFLOW=true
+RUN python src/preprocess.py
+RUN python src/train.py
 
 EXPOSE 5001
 
