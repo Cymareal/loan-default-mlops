@@ -6,7 +6,9 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY src/ ./src/
-COPY data/ ./data/
+COPY data/raw/ ./data/raw/
+
+RUN mkdir -p data/processed models
 
 ENV DISABLE_MLFLOW=true
 RUN python src/preprocess.py
