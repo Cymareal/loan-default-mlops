@@ -11,9 +11,11 @@ from scipy.stats import randint, uniform
 from imblearn.over_sampling import SMOTE
 import os
 import pickle
+import traceback
 
 DATA_PATH = "data/processed/features.csv"
 MODEL_DIR = "models"
+MODEL_PATH = os.path.join(MODEL_DIR, "voting_clf.pkl")
 MLFLOW_EXPERIMENT = "loan-default-prediction"
 
 def load_data():
@@ -47,24 +49,27 @@ def train():
         X, y, test_size=0.2, random_state=42, stratify=y
     )
 
+    # Use a subset for memory-efficient training on deployment server
+    X_train, y_train = X_train.iloc[:20000], y_train.iloc[:20000]
+
     smote = SMOTE(random_state=42)
     X_train_sm, y_train_sm = smote.fit_resample(X_train, y_train)
 
     scale = (y_train == 0).sum() / (y_train == 1).sum()
 
-    sample_idx = np.random.choice(len(X_train_sm), size=min(5000, len(X_train_sm)), replace=False)
+    sample_idx = np.random.choice(len(X_train_sm), size=min(2000, len(X_train_sm)), replace=False)
     X_sample = X_train_sm.iloc[sample_idx]
     y_sample = y_train_sm.iloc[sample_idx]
 
     # Random Forest search
     param_dist_rf = {
-        "n_estimators":      randint(100, 300),
-        "max_depth":         randint(10, 30),
-        "min_samples_split": randint(2, 20),
-        "min_samples_leaf":  randint(1, 10)
+        "n_estimators":      randint(50, 150),
+        "max_depth":         randint(5, 15),
+        "min_samples_split": randint(2, 10),
+        "min_samples_leaf":  randint(1, 5)
     }
     rf = RandomForestClassifier(class_weight="balanced", random_state=42, n_jobs=-1)
-    search_rf = RandomizedSearchCV(rf, param_dist_rf, n_iter=10, cv=3,
+    search_rf = RandomizedSearchCV(rf, param_dist_rf, n_iter=5, cv=2,
                                    scoring="recall", random_state=42, n_jobs=-1, verbose=1)
     search_rf.fit(X_sample, y_sample)
     best_rf = search_rf.best_estimator_
@@ -72,15 +77,15 @@ def train():
 
     # XGBoost search
     param_dist_xgb = {
-        "n_estimators":     randint(100, 400),
-        "max_depth":        randint(3, 10),
+        "n_estimators":     randint(50, 150),
+        "max_depth":        randint(3, 6),
         "learning_rate":    uniform(0.01, 0.2),
         "subsample":        uniform(0.6, 0.4),
         "colsample_bytree": uniform(0.6, 0.4),
         "scale_pos_weight": [scale]
     }
     xgb = XGBClassifier(eval_metric="logloss", random_state=42)
-    search_xgb = RandomizedSearchCV(xgb, param_dist_xgb, n_iter=20, cv=3,
+    search_xgb = RandomizedSearchCV(xgb, param_dist_xgb, n_iter=5, cv=2,
                                     scoring="recall", random_state=42, n_jobs=-1, verbose=1)
     search_xgb.fit(X_sample, y_sample)
     best_xgb = search_xgb.best_estimator_
@@ -111,11 +116,13 @@ def train():
         print(f"  {k}: {v:.4f}")
     print("\n", classification_report(y_test, y_final))
 
-    # Save model + threshold locally
+    # Save model + threshold
     os.makedirs(MODEL_DIR, exist_ok=True)
-    with open(os.path.join(MODEL_DIR, "voting_clf.pkl"), "wb") as f:
+    with open(MODEL_PATH, "wb") as f:
         pickle.dump({"model": voting_clf, "threshold": best_threshold}, f)
-    print(f"\nModel saved to {MODEL_DIR}/voting_clf.pkl")
+    print(f"\nModel saved to {MODEL_PATH}")
+    print(f"Model file exists: {os.path.exists(MODEL_PATH)}")
+    print(f"Model file size: {os.path.getsize(MODEL_PATH)} bytes")
 
     # Log to MLflow only if not disabled
     if use_mlflow:
@@ -130,6 +137,5 @@ if __name__ == "__main__":
     try:
         train()
     except Exception as e:
-        import traceback
         traceback.print_exc()
         raise
