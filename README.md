@@ -346,4 +346,4 @@ This is Project 4 of a 4-project AI/ML Engineering portfolio:
 | 1 | [Loan Default Prediction](https://github.com/Cymareal/loan-default-prediction) | Random Forest, XGBoost, SMOTE | ✅ Live |
 | 2 | [Sentiment Analysis API](https://github.com/Cymareal/sentiment-analysis-api) | TF-IDF, Logistic Regression, Flask | ✅ Live |
 | 3 | [Weather Image Classifier](https://github.com/Cymareal/weather-classifier) | MobileNetV2, TensorFlow, Grad-CAM | ✅ Live |
-| 4 | Loan Default MLOps Pipeline | DVC, MLflow, Docker, GitHub Actions, Evidently | ✅ This repo |
+| 4 | Loan Default MLOps Pipeline | DVC, MLflow, Docker, GitHub Actions, Evidently | ✅ [Live](https://loan-default-mlops.onrender.com) |
