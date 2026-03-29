@@ -6,7 +6,7 @@ import os
 
 app = Flask(__name__)
 
-MODEL_PATH = "models/voting_clf.pkl"
+MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "models", "voting_clf.pkl")
 
 FEATURE_ORDER = ['Age', 'Income', 'CreditScore', 'InterestRate', 'LoanTerm',
                  'DTIRatio', 'Education', 'EmploymentType', 'MaritalStatus',
