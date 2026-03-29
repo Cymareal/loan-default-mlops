@@ -11,9 +11,10 @@ COPY data/raw/ ./data/raw/
 RUN mkdir -p data/processed models
 
 ENV DISABLE_MLFLOW=true
-RUN python -u src/preprocess.py || true
+RUN python -u src/preprocess.py
 RUN ls data/processed/
-RUN python -u src/train.py || true
+RUN python -u src/train.py
+RUN ls -la models/
 
 EXPOSE 5001
 
