@@ -37,7 +37,10 @@ def find_best_threshold(y_test, y_prob):
     return best_row["Threshold"], results_df
 
 def train():
-    mlflow.set_experiment(MLFLOW_EXPERIMENT)
+    use_mlflow = os.environ.get("DISABLE_MLFLOW", "false").lower() != "true"
+
+    if use_mlflow:
+        mlflow.set_experiment(MLFLOW_EXPERIMENT)
 
     X, y = load_data()
     X_train, X_test, y_train, y_test = train_test_split(
@@ -49,7 +52,6 @@ def train():
 
     scale = (y_train == 0).sum() / (y_train == 1).sum()
 
-    # Sample for RandomizedSearchCV speed
     sample_idx = np.random.choice(len(X_train_sm), size=min(5000, len(X_train_sm)), replace=False)
     X_sample = X_train_sm.iloc[sample_idx]
     y_sample = y_train_sm.iloc[sample_idx]
@@ -109,20 +111,25 @@ def train():
         print(f"  {k}: {v:.4f}")
     print("\n", classification_report(y_test, y_final))
 
-    # Log to MLflow
-    with mlflow.start_run(run_name="ensemble_rf_xgb"):
-        mlflow.log_params(search_rf.best_params_)
-        mlflow.log_params({f"xgb_{k}": v for k, v in search_xgb.best_params_.items()})
-        mlflow.log_metrics(metrics)
-        mlflow.sklearn.log_model(voting_clf, artifact_path="model")
+    # Save model + threshold locally
+    os.makedirs(MODEL_DIR, exist_ok=True)
+    with open(os.path.join(MODEL_DIR, "voting_clf.pkl"), "wb") as f:
+        pickle.dump({"model": voting_clf, "threshold": best_threshold}, f)
+    print(f"\nModel saved to {MODEL_DIR}/voting_clf.pkl")
 
-        # Save model + threshold locally
-        os.makedirs(MODEL_DIR, exist_ok=True)
-        with open(os.path.join(MODEL_DIR, "voting_clf.pkl"), "wb") as f:
-            pickle.dump({"model": voting_clf, "threshold": best_threshold}, f)
-
-        print(f"\nModel saved to {MODEL_DIR}/voting_clf.pkl")
-        print(f"MLflow run logged under experiment: {MLFLOW_EXPERIMENT}")
+    # Log to MLflow only if not disabled
+    if use_mlflow:
+        with mlflow.start_run(run_name="ensemble_rf_xgb"):
+            mlflow.log_params(search_rf.best_params_)
+            mlflow.log_params({f"xgb_{k}": v for k, v in search_xgb.best_params_.items()})
+            mlflow.log_metrics(metrics)
+            mlflow.sklearn.log_model(voting_clf, artifact_path="model")
+            print(f"MLflow run logged under experiment: {MLFLOW_EXPERIMENT}")
 
 if __name__ == "__main__":
-    train()
+    try:
+        train()
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise
