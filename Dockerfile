@@ -10,13 +10,9 @@ COPY data/raw/ ./data/raw/
 
 RUN mkdir -p data/processed models
 
-RUN python -c "import pandas; print('pandas ok')"
-RUN python -c "import sklearn; print('sklearn ok')"
-RUN ls data/raw/
-
 ENV DISABLE_MLFLOW=true
-RUN python src/preprocess.py 2>&1
-RUN python src/train.py 2>&1
+RUN python -u src/preprocess.py
+RUN python -u src/train.py
 
 EXPOSE 5001
 
